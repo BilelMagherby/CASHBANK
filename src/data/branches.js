@@ -1,11 +1,18 @@
 export const branches = [
   { id: "all", name: "All Branches", nameAr: "كل الفروع" },
-  { id: "danis", name: "Dani's", nameAr: "دانيز" },
-  { id: "deshin", name: "Deshin", nameAr: "ديشين" },
-  { id: "gcc", name: "GCC Vibe", nameAr: "جي سي سي فايب" },
-  { id: "hajiss", name: "Hajiss-Cafe", nameAr: "مقهى هاجس" },
-  { id: "natheel", name: "Natheel Office", nameAr: "مكتب نخيل" },
-  { id: "foundation", name: "Natheel Trading Est.", nameAr: "مؤسسة إبراهيم عبدالكريم الربيعان التجارية" },
+  { id: "hajiss", name: "Hajiss", nameAr: "هاجس" },
+  { id: "ghalia", name: "Ghalia", nameAr: "غاليا" },
+  { id: "odun", name: "Odun", nameAr: "أودون" },
+  { id: "natheel", name: "Natheel", nameAr: "نخيل" },
 ];
 
 export const branchName = (id) => branches.find((branch) => branch.id === id)?.name ?? id;
+
+const legacyBranchIds = {
+  danis: "ghalia",
+  deshin: "odun",
+  gcc: "natheel",
+  foundation: "ghalia",
+};
+
+export const normalizeBranchId = (id) => legacyBranchIds[id] ?? id;

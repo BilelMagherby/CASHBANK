@@ -12,7 +12,7 @@ const data = [
 export default function MonthlySummaryChart() {
   const { t } = useLanguage();
   const { branch } = useApp();
-  const branchRatios = { danis: 0.22, deshin: 0.17, gcc: 0.27, hajiss: 0.15, natheel: 0.11, foundation: 0.08 };
+  const branchRatios = { hajiss: 0.15, ghalia: 0.22, odun: 0.17, natheel: 0.46 };
   const chartData = branch === "all" ? data : data.map((item) => ({
     ...item,
     cashIn: Math.round(item.cashIn * branchRatios[branch]),

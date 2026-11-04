@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Eye, Search, Download } from "lucide-react";
 import { Button, Field } from "./Primitives";
 import { useLanguage } from "../../hooks/useLanguage";
 import StatusBadge from "./StatusBadge";
-import { branchName } from "../../data/branches";
+import { branchName, normalizeBranchId } from "../../data/branches";
 
 export function exportCsv(filename, rows, columns) {
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -70,6 +70,7 @@ export default function DataTable({ columns, rows, searchKeys = [], filename = "
 }
 
 export function displayBranch(branch, isArabic = false) {
-  if (!isArabic) return branchName(branch);
-  return ({ danis: "دانيز", deshin: "ديشين", gcc: "جي سي سي فايب", hajiss: "مقهى هاجس", natheel: "مكتب نخيل", foundation: "مؤسسة الربيعان التجارية" })[branch] ?? "كل الفروع";
+  const normalized = normalizeBranchId(branch);
+  if (!isArabic) return branchName(normalized);
+  return ({ hajiss: "هاجس", ghalia: "غاليا", odun: "أودون", natheel: "نخيل" })[normalized] ?? "كل الفروع";
 }
