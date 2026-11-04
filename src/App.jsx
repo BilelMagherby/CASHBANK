@@ -10,6 +10,7 @@ import VATPage from "./pages/VATPage";
 import OdooPage from "./pages/OdooPage";
 import SettingsPage from "./pages/SettingsPage";
 import DocumentsPage from "./pages/DocumentsPage";
+import TaxReturnReminderPage from "./pages/TaxReturnReminderPage";
 
 export default function App() {
   return <Layout><Routes>
@@ -23,6 +24,7 @@ export default function App() {
     <Route path="/attendance" element={<AttendancePage />} />
     <Route path="/tasks" element={<TasksPage />} />
     <Route path="/vat" element={<VATPage />} />
+    <Route path="/tax-reminder" element={<TaxReturnReminderPage />} />
     <Route path="/odoo" element={<OdooPage />} />
     <Route path="/settings" element={<SettingsPage />} />
     <Route path="*" element={<Navigate to="/" replace />} />

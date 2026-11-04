@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Activity, Banknote, Building2, ClipboardList, CreditCard, FileCheck2, FileText, LayoutDashboard, Settings, Users, WalletCards } from "lucide-react";
+import { Activity, Banknote, Building2, CalendarClock, ClipboardList, CreditCard, FileCheck2, FileText, LayoutDashboard, Settings, Users, WalletCards } from "lucide-react";
 import { useLanguage } from "../../hooks/useLanguage";
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   ["/attendance", Users, "Attendance", "الحضور"],
   ["/tasks", ClipboardList, "Tasks", "المهام"],
   ["/vat", FileCheck2, "VAT control", "التحكم بالضريبة"],
+  ["/tax-reminder", CalendarClock, "Tax return reminder", "تذكير الإقرار الضريبي"],
   ["/odoo", Activity, "Odoo exports", "تصدير أودو"],
   ["/settings", Settings, "Settings", "الإعدادات"],
 ];
