@@ -66,6 +66,15 @@ function parseDate(value, dateFormat) {
   return { value: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, ambiguous: false };
 }
 
+function parseTime(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toTimeString().slice(0, 8);
+  if (typeof value === "number" && value >= 0 && value < 1) {
+    const seconds = Math.round(value * 86400) % 86400;
+    return `${String(Math.floor(seconds / 3600)).padStart(2, "0")}:${String(Math.floor((seconds % 3600) / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  }
+  return String(value ?? "").trim();
+}
+
 const summaryPattern = /(opening balance|closing balance|total debits?|total credits?|statement total|الرصيد الافتتاحي|الرصيد الختامي|إجمالي المدين|اجمالي المدين|إجمالي الدائن|اجمالي الدائن|الإجمالي|الاجمالي)/i;
 
 export function parseStatementRows(matrix, headerRow, mapping, dateFormat = "") {
@@ -100,7 +109,7 @@ export function parseStatementRows(matrix, headerRow, mapping, dateFormat = "") 
       id: `row-${headerRow + offset + 2}-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`,
       sourceRow: headerRow + offset + 2,
       date: parsedDate.value,
-      time: String(read("time") ?? "").trim(),
+      time: parseTime(read("time")),
       reference: String(read("reference") ?? "").trim(),
       description,
       debit: signedDebit,
@@ -119,7 +128,8 @@ export function parseStatementRows(matrix, headerRow, mapping, dateFormat = "") 
     if (!record.description) record.importIssues.push("Missing description");
     if (debitValue === null && creditValue === null) record.importIssues.push("Missing or invalid amount");
     if (signedDebit > 0 && signedCredit > 0) record.importIssues.push("Both debit and credit are populated");
-    if ((debitValue ?? 0) < 0 && (creditValue ?? 0) < 0) record.importIssues.push("Suspicious negative debit/credit");
+    if ((creditValue ?? 0) < 0) record.importIssues.push("Suspicious negative credit value");
+    if (debitValue === 0 && creditValue === 0) record.importIssues.push("Zero-value transaction");
     if (record.importIssues.length) issues.push({ row: record.sourceRow, issues: record.importIssues });
     records.push(record);
   }
@@ -147,6 +157,7 @@ export function classifyTransaction(description, debit, credit) {
     ["Tax Payments", ["vat", "tax", "ضريبة", "زكاة"]],
     ["SADAD Payments", ["sadad", "سداد"]],
     ["POS Settlements", ["pos", "point of sale", "نقاط البيع"]],
+    ["Customer Deposits", ["customer deposit", "client deposit", "إيداع العميل", "ايداع العميل", "إيداع عميل"]],
     ["Internal Transfers", ["own account", "internal transfer", "بين الحسابات", "تحويل داخلي"]],
     ["Bank Transfers", ["transfer", "wire", "تحويل"]],
     ["Supplier Payments", ["supplier", "vendor", "invoice", "مورد", "فاتورة"]],

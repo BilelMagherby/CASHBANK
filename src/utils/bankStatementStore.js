@@ -45,5 +45,5 @@ export function downloadOriginal(statement) {
   anchor.href = url;
   anchor.download = statement.fileName;
   anchor.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

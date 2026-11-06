@@ -34,6 +34,7 @@ const tabs = [
 const money = (value, currency = "SAR") => value === null || value === undefined || !Number.isFinite(Number(value))
   ? "—"
   : `${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+const safeSpreadsheetText = (value) => typeof value === "string" && /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
 const shortDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateString() : "—";
 const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -42,14 +43,14 @@ async function downloadRows(rows, filename, format) {
   const data = rows.map((row) => ({
     Date: row.date,
     Time: row.time,
-    Reference: row.reference,
-    Description: row.description,
+    Reference: safeSpreadsheetText(row.reference),
+    Description: safeSpreadsheetText(row.description),
     Debit: row.debit,
     Credit: row.credit,
     Balance: row.balance,
-    Category: row.category,
-    Status: row.reviewStatus,
-    Notes: row.notes,
+    Category: safeSpreadsheetText(row.category),
+    Status: safeSpreadsheetText(row.reviewStatus),
+    Notes: safeSpreadsheetText(row.notes),
   }));
   if (format === "xlsx") {
     const workbook = XLSX.utils.book_new();
@@ -72,8 +73,8 @@ async function downloadReportFile(statement, title, rows, totals, format) {
   const XLSX = await import("xlsx");
   const summary = [
     ["Company", companyName],
-    ["Bank", statement.metadata.bankName || "Not provided"],
-    ["Account", statement.metadata.accountNumber ? `•••• •••• ${statement.metadata.accountNumber.slice(-4)}` : "Not provided"],
+    ["Bank", safeSpreadsheetText(statement.metadata.bankName || "Not provided")],
+    ["Account", safeSpreadsheetText(statement.metadata.accountNumber ? `•••• •••• ${statement.metadata.accountNumber.slice(-4)}` : "Not provided")],
     ["Period", `${statement.metadata.startDate || "—"} - ${statement.metadata.endDate || "—"}`],
     ["Currency", statement.metadata.currency || "SAR"],
     ["Generated", new Date().toLocaleString()],
@@ -87,14 +88,14 @@ async function downloadReportFile(statement, title, rows, totals, format) {
   const rowsSheet = XLSX.utils.json_to_sheet(rows.map((row) => ({
     Date: row.date,
     Time: row.time,
-    Reference: row.reference,
-    Description: row.description,
+    Reference: safeSpreadsheetText(row.reference),
+    Description: safeSpreadsheetText(row.description),
     Debit: row.debit,
     Credit: row.credit,
     Balance: row.balance,
-    Category: row.category,
-    Status: row.reviewStatus ?? row.status,
-    Notes: row.notes ?? row.reason,
+    Category: safeSpreadsheetText(row.category),
+    Status: safeSpreadsheetText(row.reviewStatus ?? row.status),
+    Notes: safeSpreadsheetText(row.notes ?? row.reason),
   })));
   const summarySheet = XLSX.utils.aoa_to_sheet([[title], ...summary]);
   const filename = `${title.toLowerCase().replaceAll(" ", "-")}-report`;
@@ -116,14 +117,15 @@ async function downloadReportFile(statement, title, rows, totals, format) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function printReport(statement, rows, totals, title) {
+function printReport(statement, rows, totals, title, exceptions) {
   const escape = (value) => String(value ?? "—").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   })[character]);
   const reportWindow = window.open("", "_blank");
   if (!reportWindow) throw new Error("Allow pop-ups to open the print-ready report.");
   const transactionRows = rows.map((row) => `<tr><td>${escape(row.date)}</td><td>${escape(row.reference)}</td><td>${escape(row.description)}</td><td>${escape(row.debit)}</td><td>${escape(row.credit)}</td><td>${escape(row.balance)}</td><td>${escape(row.category)}</td></tr>`).join("");
-  reportWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(title)}</title><style>body{font:12px Arial,sans-serif;color:#1e293b;padding:24px}h1{font-size:20px}table{border-collapse:collapse;width:100%;margin-top:20px}td,th{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}.summary{line-height:1.8}@media print{body{padding:0}}</style></head><body><h1>${escape(companyName)} — ${escape(title)}</h1><p>${escape(statement.metadata.bankName || "Bank name not provided")} · Account ${escape(statement.metadata.accountNumber ? `•••• ${statement.metadata.accountNumber.slice(-4)}` : "—")} · ${escape(statement.metadata.startDate)} – ${escape(statement.metadata.endDate)} · ${escape(statement.metadata.currency)}</p><p class="summary">Opening balance: ${escape(totals.opening)} · Deposits: ${escape(totals.deposits)} · Withdrawals: ${escape(totals.withdrawals)} · Expected closing: ${escape(totals.expected)} · Actual closing: ${escape(totals.closing)} · Difference: ${escape(totals.difference)}<br>Generated: ${escape(new Date().toLocaleString())}</p><table><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Category</th></tr></thead><tbody>${transactionRows}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
+  const exceptionRows = exceptions.map((item) => `<tr><td>${escape(item.type)}</td><td>${escape(item.transaction.reference)}</td><td>${escape(item.transaction.date)}</td><td>${escape(item.reason)}</td><td>${escape(item.status)}</td></tr>`).join("");
+  reportWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escape(title)}</title><style>body{font:12px Arial,sans-serif;color:#1e293b;padding:24px}h1{font-size:20px}h2{font-size:15px;margin-top:24px}table{border-collapse:collapse;width:100%;margin-top:12px}td,th{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}.summary{line-height:1.8}@media print{body{padding:0}}</style></head><body><h1>${escape(companyName)} — ${escape(title)}</h1><p>${escape(statement.metadata.bankName || "Bank name not provided")} · Account ${escape(statement.metadata.accountNumber ? `•••• ${statement.metadata.accountNumber.slice(-4)}` : "—")} · ${escape(statement.metadata.startDate)} – ${escape(statement.metadata.endDate)} · ${escape(statement.metadata.currency)}</p><p class="summary">Opening balance: ${escape(totals.opening)} · Deposits: ${escape(totals.deposits)} · Withdrawals: ${escape(totals.withdrawals)} · Expected closing: ${escape(totals.expected)} · Actual closing: ${escape(totals.closing)} · Difference: ${escape(totals.difference)}<br>Generated: ${escape(new Date().toLocaleString())}</p><h2>Transactions</h2><table><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th>Debit</th><th>Credit</th><th>Balance</th><th>Category</th></tr></thead><tbody>${transactionRows}</tbody></table><h2>Exceptions</h2><table><thead><tr><th>Issue</th><th>Reference</th><th>Date</th><th>Reason</th><th>Status</th></tr></thead><tbody>${exceptionRows}</tbody></table><script>window.onload=()=>window.print()</script></body></html>`);
   reportWindow.document.close();
 }
 
@@ -157,7 +159,10 @@ function getExceptions(statement) {
   const results = [];
   const referenceGroups = new Map();
   transactions.forEach((row) => {
-    if (row.reference) referenceGroups.set(row.reference, [...(referenceGroups.get(row.reference) ?? []), row]);
+    if (row.reference) {
+      const key = row.reference.toLocaleUpperCase();
+      referenceGroups.set(key, [...(referenceGroups.get(key) ?? []), row]);
+    }
   });
   const add = (row, type, reason) => results.push({
     id: `${row.id}:${type}`, type, transaction: row, reason,
@@ -165,7 +170,7 @@ function getExceptions(statement) {
   });
   transactions.forEach((row) => {
     row.importIssues?.forEach((issue) => add(row, issue, "This row was imported and retained for review."));
-    if (row.reference && referenceGroups.get(row.reference).length > 1) add(row, "Duplicate reference", "The reference occurs more than once. Both transactions are preserved.");
+    if (row.reference && referenceGroups.get(row.reference.toLocaleUpperCase()).length > 1) add(row, "Duplicate reference", "The reference occurs more than once. Both transactions are preserved.");
   });
   if (statement.metadata?.hasBalanceColumn) {
     const openingValue = statement.metadata.openingBalance;
@@ -186,9 +191,10 @@ function getExceptions(statement) {
   return results;
 }
 
-function getMatchCandidates(transaction) {
+function getMatchCandidates(transaction, statement) {
   const amount = Number(transaction.credit || transaction.debit || 0);
-  const descriptionWords = new Set(transaction.description.toLowerCase().split(/\W+/).filter((word) => word.length > 3));
+  const descriptionWords = new Set(transaction.description.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 3));
+  const accountNumber = String(statement?.metadata?.accountNumber ?? "").replace(/\D/g, "");
   return bankMovements.map((movement) => {
     let score = 0;
     if (Math.abs(Math.abs(movement.amount) - amount) < 0.01) score += 4;
@@ -196,7 +202,12 @@ function getMatchCandidates(transaction) {
     else if (transaction.date && Math.abs(new Date(`${movement.date}T00:00:00`) - new Date(`${transaction.date}T00:00:00`)) <= 3 * 86400000) score += 1;
     const reference = transaction.reference.toLowerCase();
     if (reference && (movement.id.toLowerCase().includes(reference) || reference.includes(movement.id.toLowerCase()))) score += 3;
-    if (descriptionWords.size && movement.description.toLowerCase().split(/\W+/).some((word) => word.length > 3 && descriptionWords.has(word))) score += 1;
+    if (descriptionWords.size && movement.description.toLowerCase().split(/[^\p{L}\p{N}]+/u).some((word) => word.length > 3 && descriptionWords.has(word))) score += 1;
+    if (accountNumber) {
+      const movementAccount = movement.account.replace(/\D/g, "");
+      if (movementAccount.endsWith(accountNumber.slice(-4))) score += 1;
+      else if (movementAccount) score -= 4;
+    }
     return { movement, score };
   }).filter((candidate) => candidate.score > 0).sort((a, b) => b.score - a.score).slice(0, 3);
 }
@@ -215,6 +226,7 @@ export default function BankStatementPage() {
   const [dragging, setDragging] = useState(false);
   const [pending, setPending] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [metadataDraft, setMetadataDraft] = useState(null);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -225,6 +237,7 @@ export default function BankStatementPage() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState({ key: "date", direction: "desc" });
   const statementsRef = useRef([]);
+  const saveQueues = useRef(new Map());
 
   useEffect(() => {
     listStatements().then((items) => {
@@ -235,6 +248,7 @@ export default function BankStatementPage() {
   }, []);
 
   const selected = statements.find((item) => item.id === selectedId) ?? null;
+  useEffect(() => setMetadataDraft(selected?.metadata ?? null), [selectedId]);
   const transactions = selected?.transactions ?? [];
   const totals = useMemo(() => getTotals(selected), [selected]);
   const exceptions = useMemo(() => getExceptions(selected), [selected]);
@@ -267,19 +281,30 @@ export default function BankStatementPage() {
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const shown = filtered.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => setPage(1), [search, typeFilter, categoryFilter, dateFrom, dateTo, amountMin, amountMax, selectedId]);
 
   const updateStatement = async (id, updater, message) => {
     const current = statementsRef.current.find((statement) => statement.id === id);
     if (!current) return;
     const updated = updater(current);
+    const optimistic = statementsRef.current.map((statement) => statement.id === id ? updated : statement);
+    statementsRef.current = optimistic;
+    setStatements(optimistic);
+    const previousWrite = saveQueues.current.get(id) ?? Promise.resolve();
+    const write = previousWrite.catch(() => {}).then(() => saveStatement(updated));
+    saveQueues.current.set(id, write);
     try {
-      await saveStatement(updated);
-      const next = statementsRef.current.map((statement) => statement.id === id ? updated : statement);
-      statementsRef.current = next;
-      setStatements(next);
+      await write;
+      if (saveQueues.current.get(id) === write) saveQueues.current.delete(id);
       if (message) setNotice(message);
       setError("");
     } catch (saveError) {
+      if (saveQueues.current.get(id) === write) {
+        saveQueues.current.delete(id);
+        const reverted = statementsRef.current.map((statement) => statement.id === id ? current : statement);
+        statementsRef.current = reverted;
+        setStatements(reverted);
+      }
       setError(`Unable to save changes locally: ${saveError.message}`);
     }
   };
@@ -294,6 +319,7 @@ export default function BankStatementPage() {
     }
     setFileBusy(true);
     try {
+      const XLSX = await import("xlsx");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
       if (!workbook.SheetNames.length) throw new Error("The selected file contains no worksheets.");
       const sheets = workbook.SheetNames.map((name) => {
@@ -312,7 +338,7 @@ export default function BankStatementPage() {
         && statement.metadata.startDate === startDate && statement.metadata.endDate === endDate
         && Boolean(accountNumber && startDate && endDate));
       setPending({
-        file, workbook, sheets, sheetName: best.name, matrix: best.matrix, headerRow: best.rowIndex,
+        file, sheets, sheetName: best.name, matrix: best.matrix, headerRow: best.rowIndex,
         mapping: best.mapping, fingerprint, dateFormat: "", fileDuplicate, periodDuplicate,
       });
       setNotice("");
@@ -347,7 +373,16 @@ export default function BankStatementPage() {
       setError("Some dates are ambiguous. Confirm whether the file uses day/month/year or month/day/year.");
       return;
     }
-    if ((pending.fileDuplicate || pending.periodDuplicate) && !pending.forceDuplicate) {
+    const previewAccount = currentPreview.records.find((row) => row.accountNumber)?.accountNumber ?? "";
+    const previewDates = currentPreview.records.map((row) => row.date).filter(Boolean).sort();
+    const previewStart = previewDates[0] ?? "";
+    const previewEnd = previewDates[previewDates.length - 1] ?? "";
+    const periodDuplicate = statementsRef.current.some((statement) => statement.metadata.accountNumber === previewAccount
+      && statement.metadata.startDate === previewStart && statement.metadata.endDate === previewEnd
+      && Boolean(previewAccount && previewStart && previewEnd));
+    const fileDuplicate = statementsRef.current.some((statement) => statement.fingerprint === pending.fingerprint);
+    if ((pending.fileDuplicate || pending.periodDuplicate || fileDuplicate || periodDuplicate) && !pending.forceDuplicate) {
+      setPending((current) => ({ ...current, fileDuplicate: current.fileDuplicate || fileDuplicate, periodDuplicate: current.periodDuplicate || periodDuplicate }));
       setError("This file or account statement period was already imported. Confirm the corrected import explicitly to continue.");
       return;
     }
@@ -413,9 +448,15 @@ export default function BankStatementPage() {
     }
   };
 
-  const updateMetadata = (key, value) => updateStatement(selected.id, (item) => ({
-    ...item, metadata: { ...item.metadata, [key]: ["openingBalance", "closingBalance"].includes(key) ? (value === "" || !Number.isFinite(Number(value)) ? null : Number(value)) : value },
-  }));
+  const updateMetadata = () => {
+    if (!selected || !metadataDraft) return;
+    const metadata = { ...metadataDraft };
+    for (const key of ["openingBalance", "closingBalance"]) {
+      metadata[key] = metadata[key] === "" || !Number.isFinite(Number(metadata[key])) ? null : Number(metadata[key]);
+    }
+    updateStatement(selected.id, (item) => ({ ...item, metadata }), "Account and statement details saved locally.");
+  };
+  const changeMetadata = (key, value) => setMetadataDraft((current) => ({ ...selected.metadata, ...current, [key]: value }));
   const updateTransaction = (id, changes) => updateStatement(selected.id, (item) => ({
     ...item,
     transactions: item.transactions.map((row) => row.id === id ? { ...row, ...changes } : row),
@@ -512,11 +553,11 @@ export default function BankStatementPage() {
       ...exceptions.map((item) => ({ ...item.transaction, description: item.reason, category: item.type, reviewStatus: item.status })),
     ];
     else if (kind === "Data Quality") rows = exceptions.map((item) => ({ ...item.transaction, category: item.type, reviewStatus: item.status, notes: item.reason }));
-    downloadReportFile(selected, kind, rows, totals, format);
+    downloadReportFile(selected, kind, rows, totals, format).catch((downloadError) => setError(`Unable to create report: ${downloadError.message}`));
   };
   const printSelectedReport = () => {
     try {
-      printReport(selected, transactions, totals, "Complete Bank Statement Report");
+      printReport(selected, transactions, totals, "Complete Bank Statement Report", exceptions);
     } catch (printError) {
       setError(printError.message);
     }
@@ -634,17 +675,20 @@ export default function BankStatementPage() {
         <div className="grid gap-5 xl:grid-cols-2">
           <Card className="p-4 sm:p-5"><SectionTitle title="Bank account and statement details" subtitle="Editing metadata does not change imported transaction values." />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Bank name" value={selected.metadata.bankName} onChange={(event) => updateMetadata("bankName", event.target.value)} placeholder="Enter bank name" />
-              <Field label="Account holder" value={selected.metadata.accountHolder} onChange={(event) => updateMetadata("accountHolder", event.target.value)} placeholder="Enter account holder" />
-              <Field label="Account number" value={selected.metadata.accountNumber} onChange={(event) => updateMetadata("accountNumber", event.target.value)} />
-              <Field label="Customer CIF" value={selected.metadata.customerCif} onChange={(event) => updateMetadata("customerCif", event.target.value)} />
-              <Field label="Currency" value={selected.metadata.currency} onChange={(event) => updateMetadata("currency", event.target.value)} />
+              <Field label="Bank name" value={metadataDraft?.bankName ?? selected.metadata.bankName} onChange={(event) => changeMetadata("bankName", event.target.value)} placeholder="Enter bank name" />
+              <Field label="Account holder" value={metadataDraft?.accountHolder ?? selected.metadata.accountHolder} onChange={(event) => changeMetadata("accountHolder", event.target.value)} placeholder="Enter account holder" />
+              <Field label="Account number" value={metadataDraft?.accountNumber ?? selected.metadata.accountNumber} onChange={(event) => changeMetadata("accountNumber", event.target.value)} />
+              <Field label="Customer CIF" value={metadataDraft?.customerCif ?? selected.metadata.customerCif} onChange={(event) => changeMetadata("customerCif", event.target.value)} />
+              <Field label="Currency" value={metadataDraft?.currency ?? selected.metadata.currency} onChange={(event) => changeMetadata("currency", event.target.value)} />
               <div className="flex items-end text-xs text-slate-500">Imported: {new Date(selected.importedAt).toLocaleString()}</div>
-              <Field label="Statement start date" type="date" value={selected.metadata.startDate} onChange={(event) => updateMetadata("startDate", event.target.value)} />
-              <Field label="Statement end date" type="date" value={selected.metadata.endDate} onChange={(event) => updateMetadata("endDate", event.target.value)} />
-              <Field label="Opening balance" type="number" step="0.01" value={selected.metadata.openingBalance ?? ""} onChange={(event) => updateMetadata("openingBalance", event.target.value)} />
-              <Field label="Closing balance" type="number" step="0.01" value={selected.metadata.closingBalance ?? ""} onChange={(event) => updateMetadata("closingBalance", event.target.value)} />
+              <Field label="Imported file" value={selected.fileName} readOnly />
+              <Field label="Import date" value={selected.metadata.importDate} readOnly />
+              <Field label="Statement start date" type="date" value={metadataDraft?.startDate ?? selected.metadata.startDate} onChange={(event) => changeMetadata("startDate", event.target.value)} />
+              <Field label="Statement end date" type="date" value={metadataDraft?.endDate ?? selected.metadata.endDate} onChange={(event) => changeMetadata("endDate", event.target.value)} />
+              <Field label="Opening balance" type="number" step="0.01" value={metadataDraft?.openingBalance ?? ""} onChange={(event) => changeMetadata("openingBalance", event.target.value)} />
+              <Field label="Closing balance" type="number" step="0.01" value={metadataDraft?.closingBalance ?? ""} onChange={(event) => changeMetadata("closingBalance", event.target.value)} />
             </div>
+            <Button className="mt-4" onClick={updateMetadata}>Save account details</Button>
           </Card>
           <Card className="p-4 sm:p-5"><SectionTitle title="Largest transactions" subtitle="Top deposits and withdrawals from this import" />
             {[
@@ -656,7 +700,7 @@ export default function BankStatementPage() {
       </>}
 
       {activeTab === "transactions" && <Card className="p-4 sm:p-5">
-        <SectionTitle title="Transaction register" subtitle={`${filtered.length} of ${transactions.length} imported rows`} action={<div className="flex gap-2"><Button variant="outline" onClick={() => downloadRows(filtered, "bank-transactions", "csv")}>CSV</Button><Button variant="outline" onClick={() => downloadRows(filtered, "bank-transactions", "xlsx")}>Excel</Button></div>} />
+        <SectionTitle title="Transaction register" subtitle={`${filtered.length} of ${transactions.length} imported rows`} action={<div className="flex gap-2"><Button variant="outline" onClick={() => downloadRows(filtered, "bank-transactions", "csv").catch((downloadError) => setError(`Unable to export CSV: ${downloadError.message}`))}>CSV</Button><Button variant="outline" onClick={() => downloadRows(filtered, "bank-transactions", "xlsx").catch((downloadError) => setError(`Unable to export Excel: ${downloadError.message}`))}>Excel</Button></div>} />
         <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="relative text-xs text-slate-500"><span className="mb-1 block">Search</span><Search className="absolute start-3 top-9 text-slate-400" size={15} /><input className="h-10 w-full rounded-lg border border-slate-200 ps-9 pe-3 text-sm" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Reference or description" /></label>
           <SelectField label="Transaction type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All</option><option value="debit">Debit / withdrawal</option><option value="credit">Credit / deposit</option></SelectField>
@@ -699,7 +743,7 @@ export default function BankStatementPage() {
       {activeTab === "matching" && <Card className="p-4 sm:p-5">
         <SectionTitle title="Match imported transactions to bank movements" subtitle="Suggested matches use amount, date and descriptions. Existing dashboard movements are never changed." />
         <div className="space-y-3">{transactions.map((row) => {
-          const candidates = getMatchCandidates(row);
+          const candidates = getMatchCandidates(row, selected);
           const matched = activeMatches[row.id];
           return <div key={row.id} className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-[1fr_1fr_auto] md:items-center">
             <div><p className="text-xs font-semibold text-slate-700">{row.description || row.reference || "Unlabeled bank transaction"}</p><p className="mt-1 text-[11px] text-slate-400">{shortDate(row.date)} · {row.reference || "No reference"} · {money(row.credit || -row.debit, selected.metadata.currency)}</p></div>
@@ -717,7 +761,7 @@ export default function BankStatementPage() {
       </Card>}
 
       {activeTab === "history" && <Card className="p-4 sm:p-5">
-        <SectionTitle title="Import history" subtitle="View, reopen, export originals or delete local imports. Duplicate imports require explicit confirmation." action={<Button variant="outline" onClick={() => downloadRows(transactions, "bank-statement-backup", "xlsx")}><ArrowDownToLine size={15} />Export selected backup</Button>} />
+        <SectionTitle title="Import history" subtitle="View, reopen, export originals or delete local imports. Duplicate imports require explicit confirmation." action={<Button variant="outline" onClick={() => downloadRows(transactions, "bank-statement-backup", "xlsx").catch((downloadError) => setError(`Unable to export backup: ${downloadError.message}`))}><ArrowDownToLine size={15} />Export selected backup</Button>} />
         <div className="scrollbar-thin overflow-x-auto"><table className="w-full min-w-[1050px] text-start text-xs"><thead><tr className="border-y border-slate-100 bg-slate-50 text-slate-500">{["File", "Bank / account", "Period", "Imported", "Transactions", "Credits", "Debits", "Closing balance", "Status", "Actions"].map((heading) => <th key={heading} className="px-3 py-3 font-semibold">{heading}</th>)}</tr></thead>
           <tbody>{statements.map((statement) => { const summary = getTotals(statement); const rowStatus = Math.abs(summary.difference ?? Infinity) <= 0.01 ? "Reconciled" : summary.difference === null ? "Pending Review" : "Reconciliation Difference"; return <tr key={statement.id} className="border-b border-slate-100"><td className="max-w-[180px] truncate px-3 py-3 font-semibold">{statement.fileName}</td><td className="px-3 py-3">{statement.metadata.bankName || "—"} · {maskedAccount(statement.metadata.accountNumber)}</td><td className="px-3 py-3">{shortDate(statement.metadata.startDate)} – {shortDate(statement.metadata.endDate)}</td><td className="px-3 py-3">{new Date(statement.importedAt).toLocaleString()}</td><td className="px-3 py-3">{summary.count}</td><td className="px-3 py-3 text-emerald-700">{money(summary.deposits, statement.metadata.currency)}</td><td className="px-3 py-3 text-rose-700">{money(summary.withdrawals, statement.metadata.currency)}</td><td className="px-3 py-3">{money(summary.closing, statement.metadata.currency)}</td><td className="px-3 py-3"><StatusPill tone={rowStatus === "Reconciled" ? "green" : rowStatus === "Reconciliation Difference" ? "red" : "amber"}>{rowStatus}</StatusPill></td><td className="px-3 py-3"><div className="flex gap-2"><button onClick={() => { setSelectedId(statement.id); setActiveTab("overview"); }} className="font-semibold text-accent">Open</button><button onClick={() => { try { downloadOriginal(statement); } catch (downloadError) { setError(downloadError.message); } }} className="font-semibold text-slate-600">Original</button><button aria-label={`Delete ${statement.fileName}`} onClick={() => removeImport(statement)} className="text-rose-600"><Trash2 size={15} /></button></div></td></tr>; })}{!statements.length && <tr><td colSpan="10" className="px-3 py-10 text-center text-slate-400">No statements imported yet.</td></tr>}</tbody>
         </table></div>
