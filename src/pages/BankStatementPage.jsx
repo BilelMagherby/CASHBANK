@@ -8,6 +8,7 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts";
+import * as XLSX from "xlsx";
 import { useLanguage } from "../hooks/useLanguage";
 import { bankMovements } from "../data/bankMovements";
 import { Button, Card, Field, SelectField, SectionTitle } from "../components/ui/Primitives";
@@ -39,7 +40,6 @@ const shortDate = (value) => value ? new Date(`${value}T00:00:00`).toLocaleDateS
 const makeId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 async function downloadRows(rows, filename, format) {
-  const XLSX = await import("xlsx");
   const data = rows.map((row) => ({
     Date: row.date,
     Time: row.time,
@@ -70,7 +70,6 @@ async function downloadRows(rows, filename, format) {
 }
 
 async function downloadReportFile(statement, title, rows, totals, format) {
-  const XLSX = await import("xlsx");
   const summary = [
     ["Company", companyName],
     ["Bank", safeSpreadsheetText(statement.metadata.bankName || "Not provided")],
@@ -319,7 +318,6 @@ export default function BankStatementPage() {
     }
     setFileBusy(true);
     try {
-      const XLSX = await import("xlsx");
       const workbook = XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
       if (!workbook.SheetNames.length) throw new Error("The selected file contains no worksheets.");
       const sheets = workbook.SheetNames.map((name) => {
