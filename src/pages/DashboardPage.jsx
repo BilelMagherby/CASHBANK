@@ -3,7 +3,6 @@ import MonthlySummaryChart from "../components/sections/MonthlySummaryChart";
 import CashTransactions from "../components/sections/CashTransactions";
 import BankMovements from "../components/sections/BankMovements";
 import PurchaseRegister from "../components/sections/PurchaseRegister";
-import BankImportStatus from "../components/sections/BankImportStatus";
 import AttendanceKPIs from "../components/sections/AttendanceKPIs";
 import TasksKPIs from "../components/sections/TasksKPIs";
 import ApprovalQueue from "../components/sections/ApprovalQueue";
@@ -18,7 +17,7 @@ export default function DashboardPage() {
     <KPISummary />
     <TaxReturnReminder />
     <div className="grid gap-5 xl:grid-cols-[1.55fr_1fr]"><MonthlySummaryChart /><BranchBreakdown /></div>
-    <div className="grid gap-5 xl:grid-cols-2"><ApprovalQueue /><BankImportStatus /><AttendanceKPIs /><TasksKPIs /></div>
+    <div className="grid gap-5 xl:grid-cols-2"><ApprovalQueue /><AttendanceKPIs /><TasksKPIs /></div>
     <div className="grid gap-5 xl:grid-cols-2"><NotificationsPanel /><OdooExportStatus /></div>
     <CashTransactions compact />
     <BankMovements compact />

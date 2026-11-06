@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Activity, Banknote, Building2, CalendarClock, ClipboardList, CreditCard, FileCheck2, FileText, LayoutDashboard, Settings, Users, WalletCards } from "lucide-react";
+import { Activity, Banknote, Building2, CalendarClock, ClipboardList, CreditCard, FileCheck2, FileSpreadsheet, FileText, LayoutDashboard, Settings, Users, WalletCards } from "lucide-react";
 import { useLanguage } from "../../hooks/useLanguage";
 
 const navItems = [
   ["/", LayoutDashboard, "Dashboard", "لوحة التحكم"],
   ["/cash", Banknote, "Cash transactions", "المعاملات النقدية"],
   ["/bank", CreditCard, "Bank movements", "حركة البنك"],
+  ["/bank-statement", FileSpreadsheet, "Bank statement", "كشف الحساب البنكي"],
   ["/purchases", FileText, "Purchases", "المشتريات"],
   ["/invoices", FileText, "Invoices", "الفواتير"],
   ["/debit-notes", FileCheck2, "Debit notes", "إشعارات مدينة"],

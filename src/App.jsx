@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import Layout from "./components/layout/Layout";
 import DashboardPage from "./pages/DashboardPage";
 import CashPage from "./pages/CashPage";
@@ -12,11 +13,14 @@ import SettingsPage from "./pages/SettingsPage";
 import DocumentsPage from "./pages/DocumentsPage";
 import TaxReturnReminderPage from "./pages/TaxReturnReminderPage";
 
+const BankStatementPage = lazy(() => import("./pages/BankStatementPage"));
+
 export default function App() {
   return <Layout><Routes>
     <Route path="/" element={<DashboardPage />} />
     <Route path="/cash" element={<CashPage />} />
     <Route path="/bank" element={<BankPage />} />
+    <Route path="/bank-statement" element={<Suspense fallback={<div className="rounded-xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-500">Loading bank statement workspace…</div>}><BankStatementPage /></Suspense>} />
     <Route path="/purchases" element={<PurchasesPage />} />
     <Route path="/invoices" element={<DocumentsPage kind="invoice" />} />
     <Route path="/debit-notes" element={<DocumentsPage kind="debitNote" />} />
